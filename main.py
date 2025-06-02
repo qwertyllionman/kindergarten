@@ -2,6 +2,7 @@ import asyncio
 from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
+from starlette.middleware.cors import CORSMiddleware
 
 import auth
 from database import SessionLocal, User, Ingredient, Meal, MealIngredient, MealServing, InventoryTransaction, MonthlyReport, Alert, Role, get_db
@@ -14,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-# Pydantic models for request validation
+
 class IngredientCreate(BaseModel):
     name: str
     quantity_grams: float
@@ -48,6 +49,13 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 active_connections: List[WebSocket] = []
 templates = Jinja2Templates(directory="templates")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 @app.get("/register", response_class=HTMLResponse)
 async def get_register(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
