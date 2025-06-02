@@ -58,7 +58,7 @@ async def get_login(request: Request):
 
 @app.get("/home", response_class=HTMLResponse)
 async def get_home(request: Request):
-    return templates.TemplateResponse("home.html", {"request": request})
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/ingredients", response_class=HTMLResponse)
 async def get_ingredients_page(request: Request):
