@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trigger Report - Kindergarten Meal System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 2rem;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .btn-primary {
+            background: #6366f1;
+            transition: background 0.3s ease;
+        }
+        .btn-primary:hover {
+            background: #4f46e5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Trigger Monthly Report</h2>
+        <a href="/home" class="text-indigo-600 hover:underline mb-4 inline-block">&larr; Back to Home</a>
+        <div id="message" class="text-center mb-4 hidden"></div>
+
+        <button id="trigger-btn" class="btn-primary text-white py-2 px-4 rounded-lg">Trigger Report</button>
+    </div>
+
+    <script>
+        const messageDiv = document.getElementById('message');
+        const triggerBtn = document.getElementById('trigger-btn');
+        const token = localStorage.getItem('token');
+
+        triggerBtn.addEventListener('click', async () => {
+            messageDiv.classList.add('hidden');
+            triggerBtn.textContent = 'Triggering...';
+            triggerBtn.disabled = true;
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/tasks/generate-report', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.detail || 'Failed to trigger report');
+                }
+                messageDiv.classList.remove('hidden', 'text-red-500');
+                messageDiv.classList.add('text-green-500');
+                messageDiv.textContent = result.message;
+            } catch (err) {
+                messageDiv.classList.remove('hidden', 'text-green-500');
+                messageDiv.classList.add('text-red-500');
+                messageDiv.textContent = err.message;
+                if (err.message.includes('Not authorized')) {
+                    setTimeout(() => window.location.href = '/', 2000);
+                }
+            } finally {
+                triggerBtn.textContent = 'Trigger Report';
+                triggerBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

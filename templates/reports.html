@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Reports - Kindergarten Meal System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 2rem;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background: #f9fafb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Monthly Reports</h2>
+        <a href="/home" class="text-indigo-600 hover:underline mb-4 inline-block">← Back to Home</a>
+        <div id="message" class="text-center mb-4 hidden"></div>
+
+        <div id="reports-list">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th>Portions Served</th>
+                        <th>Portions Possible</th>
+                        <th>Discrepancy Rate (%)</th>
+                    </tr>
+                </thead>
+                <tbody id="reports-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const messageDiv = document.getElementById('message');
+        const reportsTableBody = document.getElementById('reports-table-body');
+        const token = localStorage.getItem('token');
+
+        async function loadReports() {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/reports/monthly', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to fetch reports');
+                }
+
+                reportsTableBody.innerHTML = '';
+                data.forEach(report => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${new Date(report.month).toLocaleDateString('en-US', { year: 'numeric', month: 'numeric' })}</td>
+                        <td>${report.served}</td>
+                        <td>${report.possible}</td>
+                        <td>${report.discrepancy.toFixed(2)}</td>
+                    `;
+                    reportsTableBody.appendChild(row);
+                });
+            } catch (err) {
+                messageDiv.classList.remove('hidden', 'text-green-500');
+                messageDiv.classList.add('text-red-500');
+                messageDiv.textContent = err.message;
+                if (err.message.includes('Not authorized')) {
+                    setTimeout(() => window.location.href = '/', 2000);
+                }
+            }
+        }
+
+        window.onload = loadReports;
+    </script>
+</body>
+</html>

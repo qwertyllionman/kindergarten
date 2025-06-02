@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alerts - Kindergarten Meal System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 2rem;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background-color: #f9fafb;
+            font-weight: 600;
+        }
+        .error {
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Alerts</h2>
+        <a href="/home" class="text-indigo-600 hover:underline mb-4 inline-block">← Back to Home</a>
+        <div id="error" class="error hidden"></div>
+        <table id="alertsTable">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Message</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody id="alertsBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        const errorDiv = document.getElementById('error');
+        const alertsBody = document.getElementById('alertsBody');
+
+        async function fetchAlerts() {
+            try {
+                if (!token) {
+                    throw new Error('No token found. Please log in.');
+                }
+
+                const response = await fetch('/alerts', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText.includes('<!DOCTYPE html>')
+                        ? 'Authentication failed. Redirecting to login...'
+                        : `Failed to fetch alerts: ${response.statusText}`);
+                }
+
+                const alerts = await response.json();
+                console.log('Fetched alerts:', alerts);
+                alertsBody.innerHTML = '';
+                if (alerts.length === 0) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = '<td colspan="3" class="text-center text-gray-500">No alerts found.</td>';
+                    alertsBody.appendChild(row);
+                    return;
+                }
+
+                alerts.forEach(alert => {
+                    if (!alert.type || !alert.message || !alert.time) {
+                        console.error('Invalid alert data:', alert);
+                        return;
+                    }
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${alert.type}</td>
+                        <td>${alert.message}</td>
+                        <td>${new Date(alert.time).toLocaleString()}</td>
+                    `;
+                    alertsBody.appendChild(row);
+                });
+            } catch (err) {
+                console.error('Error fetching alerts:', err);
+                errorDiv.textContent = err.message;
+                errorDiv.classList.remove('hidden');
+                if (err.message.includes('Authentication failed')) {
+                    setTimeout(() => window.location.href = '/login', 2000);
+                }
+            }
+        }
+
+        // Fetch alerts on page load
+        window.addEventListener('load', fetchAlerts);
+
+        // WebSocket for real-time updates
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        ws.onopen = () => console.log('WebSocket connected');
+        ws.onerror = (error) => console.error('WebSocket error:', error);
+        ws.onmessage = (event) => {
+            console.log('Raw WebSocket message received:', event.data, 'Type:', typeof event.data);
+            // Ensure event.data is a string
+            if (typeof event.data !== 'string') {
+                console.log('Ignoring non-string message:', event.data, 'Type:', typeof event.data);
+                return;
+            }
+            const message = event.data.trim();
+            // Basic validation: JSON should start with { and end with }
+            if (!message.startsWith('{') || !message.endsWith('}')) {
+                console.log('Ignoring non-JSON message:', message);
+                return;
+            }
+            try {
+                const data = JSON.parse(message);
+                console.log('Parsed WebSocket message:', data);
+                if (data.type === 'alert') {
+                    fetchAlerts(); // Refresh the table on new alert
+                }
+            } catch (err) {
+                console.error('Failed to parse WebSocket message:', err, 'Message:', message);
+                errorDiv.textContent = 'Error receiving real-time update. Please refresh the page.';
+                errorDiv.classList.remove('hidden');
+            }
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serve Meal - Kindergarten Meal System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 2rem;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .message {
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            text-align: center;
+        }
+        .error { background-color: #fee2e2; colorshader: #991b1b; }
+        .success { background-color: #d1fae5; color: #065f46; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Serve Meal</h2>
+        <a href="/home" class="text-indigo-600 hover:underline mb-4 inline-block">← Back to Home</a>
+        <div id="message" class="message hidden"></div>
+
+        <form id="serveForm" method="POST">
+            <div class="mb-4">
+                <label for="mealId" class="block text-sm font-medium text-gray-700">Select Meal</label>
+                <select id="mealId" name="mealId" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+                    <option value="" disabled selected>Select a meal</option>
+                </select>
+            </div>
+            <div class="mb-4">
+                <label for="portions" class="block text-sm font-medium text-gray-700">Portions to Serve</label>
+                <input type="number" id="portions" name="portions" value="1" min="1" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+            </div>
+            <button type="submit" id="submitButton" class="bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600">Serve Meal</button>
+        </form>
+    </div>
+
+    <script>
+        const form = document.getElementById('serveForm');
+        const mealSelect = document.getElementById('mealId');
+        const submitButton = document.getElementById('submitButton');
+        const messageDiv = document.getElementById('message');
+        const token = localStorage.getItem('token');
+
+        // Fetch meals and populate the dropdown
+        async function populateMeals() {
+            try {
+                const response = await fetch('/meals/', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                if (!response.ok) {
+                    throw new Error('Failed to fetch meals');
+                }
+                const meals = await response.json();
+                meals.forEach(meal => {
+                    const option = document.createElement('option');
+                    option.value = meal.id;
+                    option.textContent = meal.name;
+                    mealSelect.appendChild(option);
+                });
+            } catch (err) {
+                console.error('Error fetching meals:', err);
+                messageDiv.textContent = 'Error loading meals. Please try again.';
+                messageDiv.classList.remove('hidden', 'success');
+                messageDiv.classList.add('error');
+            }
+        }
+
+        // Call populateMeals on page load
+        window.addEventListener('load', populateMeals);
+
+        // Handle form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            submitButton.disabled = true;
+
+            const mealId = mealSelect.value;
+            const portions = parseInt(document.getElementById('portions').value, 10);
+
+            // Log the values being sent
+            console.log('Submitting:', { mealId, portions });
+            const payload = JSON.stringify({ portions: portions });
+            console.log('JSON payload:', payload);
+
+            try {
+                const response = await fetch(`/serve/${mealId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: payload
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText.includes('<!DOCTYPE html>')
+                        ? 'Authentication failed. Redirecting to login...'
+                        : `Failed to serve meal: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                messageDiv.textContent = data.message || 'Meal served successfully';
+                messageDiv.classList.remove('hidden', 'error');
+                messageDiv.classList.add('success');
+                form.reset();
+            } catch (err) {
+                console.error('Error:', err);
+                messageDiv.textContent = err.message;
+                messageDiv.classList.remove('hidden', 'success');
+                messageDiv.classList.add('error');
+                if (err.message.includes('Authentication failed')) {
+                    setTimeout(() => window.location.href = '/login', 2000);
+                }
+            } finally {
+                submitButton.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

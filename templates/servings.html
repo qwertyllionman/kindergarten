@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Servings - Kindergarten Meal System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 2rem;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background: #f9fafb;
+        }
+        .message {
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            text-align: center;
+        }
+        .error {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        .info {
+            background-color: #e0f2fe;
+            color: #1e40af;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Meal Servings</h2>
+        <a href="/home" class="text-indigo-600 hover:underline mb-4 inline-block">← Back to Home</a>
+        <div id="message" class="message hidden"></div>
+
+        <div id="servings-list">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Meal</th>
+                        <th>Served By</th>
+                        <th>Portions Served</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody id="servings-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const messageDiv = document.getElementById('message');
+        const servingsTableBody = document.getElementById('servings-table-body');
+        const token = localStorage.getItem('token');
+
+        async function loadServings() {
+            if (!token) {
+                showMessage('No authentication token found. Please log in.', 'error');
+                setTimeout(() => window.location.href = '/login', 2000);
+                return;
+            }
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/servings', {  // Updated to /api/servings
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                // Log response details for debugging
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+                const responseText = await response.text();
+                console.log('Raw response:', responseText);
+
+                // Check if response is OK
+                if (!response.ok) {
+                    let errorDetail;
+                    try {
+                        errorDetail = JSON.parse(responseText).detail || `Failed to fetch servings (status: ${response.status})`;
+                    } catch (e) {
+                        errorDetail = responseText.includes('<!DOCTYPE html>')
+                            ? 'Authentication failed. Redirecting to login...'
+                            : responseText || `Failed to fetch servings (status: ${response.status})`;
+                    }
+                    throw new Error(errorDetail);
+                }
+
+                // Parse the response as JSON
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    console.error('JSON parsing error:', e);
+                    throw new Error(`Invalid response format from server: ${responseText.slice(0, 100)}...`);
+                }
+
+                servingsTableBody.innerHTML = '';
+                if (data.length === 0) {
+                    showMessage('No servings recorded yet. Try serving a meal from the Serve Meal page.', 'info');
+                    return;
+                }
+
+                data.forEach(serving => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${serving.meal || 'Unknown Meal'}</td>
+                        <td>${serving.user || 'Unknown User'}</td>
+                        <td>${serving.portions || 0}</td>
+                        <td>${serving.time ? new Date(serving.time).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A'}</td>
+                    `;
+                    servingsTableBody.appendChild(row);
+                });
+            } catch (err) {
+                console.error('Error loading servings:', err);
+                showMessage(err.message, 'error');
+                if (err.message.includes('Authentication failed') || err.message.includes('Could not validate credentials')) {
+                    setTimeout(() => window.location.href = '/login', 2000);
+                }
+            }
+        }
+
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.classList.remove('hidden', 'info', 'error');
+            messageDiv.classList.add(type);
+        }
+
+        window.onload = loadServings;
+    </script>
+</body>
+</html>
